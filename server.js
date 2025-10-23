@@ -9,7 +9,6 @@ import startSignaling from './signaling.js';
 import { connectDB } from './config/db.js';
 //import userRouter from './routes/user.js';
 import meetingRouter from './routes/meetings.js';
-//import authRouter from './routes/userAuth.js';
 import imageRouter from './routes/Images.js';
 import videoRouter from './routes/video.js';
 import authRouter from './routes/userAuth.js';
