@@ -23,7 +23,7 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 
-app.use('/users', userRouter);
+//app.use('/users', userRouter);
 app.use("/api/users", authRouter);
 
 app.use('/api', imageRouter);

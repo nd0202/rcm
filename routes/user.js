@@ -26,9 +26,9 @@ const s3 = new S3Client({
 // ✅ Create user with optional avatar
 userRouter.post("/", upload.single("avatar"), async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, password } = req.body;
 
-    if (!name || !email) {
+    if (!name || !email || !password) {
       return res.status(400).json({ error: "Name and email required" });
     }
 
