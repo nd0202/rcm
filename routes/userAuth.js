@@ -6,7 +6,6 @@ import dotenv from "dotenv";
 import { User } from "../models/user.js";
 
 
-
 dotenv.config();
 const authRouter = express.Router();
 
