@@ -9,7 +9,7 @@ import startSignaling from './signaling.js';
 import { connectDB } from './config/db.js';
 //import userRouter from './routes/user.js';
 import meetingRouter from './routes/meetings.js';
-import authRouter from './routes/userAuth.js';
+//import authRouter from './routes/userAuth.js';
 import imageRouter from './routes/Images.js';
 import videoRouter from './routes/video.js';
 
@@ -24,7 +24,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 
 //app.use('/users', userRouter);
-app.use("/api/users", authRouter);
+//app.use("/api/users", authRouter);
 
 app.use('/api', imageRouter);
 
