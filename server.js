@@ -12,6 +12,7 @@ import meetingRouter from './routes/meetings.js';
 //import authRouter from './routes/userAuth.js';
 import imageRouter from './routes/Images.js';
 import videoRouter from './routes/video.js';
+import authRouter from './routes/userAuth.js';
 
 dotenv.config();
 connectDB();
@@ -29,7 +30,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 
 //app.use('/users', userRouter);
-//app.use("/api/users", authRouter);
+app.use("/api/users", authRouter);
 
 app.use('/api', imageRouter);
 
