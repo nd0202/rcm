@@ -7,7 +7,7 @@ import bodyParser from 'body-parser';
 import presignRouter from './routes/presign.js';
 import startSignaling from './signaling.js';
 import { connectDB } from './config/db.js';
-import userRouter from './routes/user.js';
+//import userRouter from './routes/user.js';
 import meetingRouter from './routes/meetings.js';
 import authRouter from './routes/userAuth.js';
 import imageRouter from './routes/Images.js';
