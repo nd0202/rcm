@@ -29,7 +29,7 @@ postRouter.post("/posts", async (req, res) => {
 
     const post = new Post({
       ownerId,
-      title: title || "Untitled",
+      title: title || "",
       description: description || "",
       media_key,
       media_type,
@@ -38,6 +38,7 @@ postRouter.post("/posts", async (req, res) => {
     });
 
     await post.save();
+    await post.populate("ownerId", "name avatar_url");
 
     // If video and no thumbnail_key provided, attempt server-side thumbnail generation async-ish
     if (media_type === "video" && !thumbnail_key) {
@@ -63,7 +64,7 @@ postRouter.post("/posts", async (req, res) => {
 // GET /api/posts - fetch latest posts populated with user profile
 postRouter.get("/posts", async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 }).limit(100).populate("ownerId").exec();
+    const posts = await Post.find().sort({ createdAt: -1 }).limit(100).populate("ownerId", "name avatar_url").exec();
     res.json(posts);
   } catch (err) {
     console.error("❌ Fetch posts failed:", err);
