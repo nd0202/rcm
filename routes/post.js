@@ -38,7 +38,7 @@ postRouter.post("/posts", async (req, res) => {
     });
 
     await post.save();
-    await post.populate("ownerId", "name avatar_url");
+    
 
     // If video and no thumbnail_key provided, attempt server-side thumbnail generation async-ish
     if (media_type === "video" && !thumbnail_key) {
