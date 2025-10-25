@@ -53,8 +53,11 @@ postRouter.post("/posts", async (req, res) => {
     }
 
     // populate owner profile for response
-    const populated = await Post.findById(post._id).populate("ownerId").exec();
-    res.status(201).json(populated);
+    const populatedPost = await Post.findById(post._id)
+      .populate("ownerId", "name avatar_url email")
+      .exec();
+
+    res.status(201).json(populatedPost);
   } catch (err) {
     console.error("❌ Post save failed:", err);
     res.status(500).json({ error: "Failed to save post: " + err.message });
