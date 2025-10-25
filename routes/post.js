@@ -26,7 +26,7 @@ postRouter.post("/posts", async (req, res) => {
     if (!ownerId || !media_key || !media_type) {
       return res.status(400).json({ error: "Missing ownerId, media_key or media_type" });
     }
-     const user = await User.findById(_id).select('-password');
+     const user = await User.findById(id).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found', success: false });
     }
