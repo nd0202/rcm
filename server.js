@@ -12,7 +12,8 @@ import meetingRouter from './routes/meetings.js';
 import imageRouter from './routes/Images.js';
 import videoRouter from './routes/video.js';
 import authRouter from './routes/userAuth.js';
-import postRouter from './routes/video.js';
+import postRouter from './routes/post.js';
+
 
 dotenv.config();
 connectDB();
