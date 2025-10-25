@@ -10,8 +10,9 @@ import { connectDB } from './config/db.js';
 //import userRouter from './routes/user.js';
 import meetingRouter from './routes/meetings.js';
 import imageRouter from './routes/Images.js';
-import videoRouter from './routes/video.js';
+//import videoRouter from './routes/video.js';
 import authRouter from './routes/userAuth.js';
+import postRouter from './routes/video.js';
 
 dotenv.config();
 connectDB();
@@ -34,7 +35,8 @@ app.use("/api/users", authRouter);
 app.use('/api', imageRouter);
 
 app.use('/api', presignRouter);
-app.use('/api', videoRouter);
+//app.use('/api', videoRouter);
+app.use('/api', postRouter);
 app.use('/meetings', meetingRouter);
 
 app.get('/', (_, res) => res.json({ ok: true }));
