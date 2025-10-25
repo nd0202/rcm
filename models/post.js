@@ -9,6 +9,10 @@ const PostSchema = new mongoose.Schema({
   media_type: { type: String, enum: ["video", "image"], required: true },
   thumbnail_key: { type: String }, // s3 key of thumbnail image (optional)
   status: { type: String, default: "ready" },
+   userDetail: {
+      type: Array,
+      default: []
+    }
 }, { timestamps: true });
 
 export const Post = mongoose.model("Post", PostSchema);
