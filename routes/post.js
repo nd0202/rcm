@@ -38,7 +38,7 @@ postRouter.post("/posts", async (req, res) => {
       description: description || "",
       media_key,
       media_type,
-      thumbnail_key: thumbnail_key || null,
+      thumbnail_key: thumbnail_key || "",
       status: "processing",
     });
 
