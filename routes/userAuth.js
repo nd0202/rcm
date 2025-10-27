@@ -83,45 +83,57 @@ const s3 = new S3Client({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
-authRouter.post("/profile/avatar", upload.single("avatar"), async (req, res) => {
-  try {
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+authRouter.post(
+  "/profile/avatar",
+  verifyToken, // <-- this is the missing piece!
+  upload.single("avatar"),
+  async (req, res) => {
+    try {
+      if (!req.user || !req.user.id) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Unauthorized" });
+      }
+
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ success: false, message: "No file uploaded" });
+      }
+
+      const userId = req.user.id;
+      const key = `avatars/${userId}-${Date.now()}.jpg`;
+
+      // Upload to S3
+      const cmd = new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: key,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      });
+
+      await s3.send(cmd);
+
+      // Generate public S3 URL
+      const avatar_url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+      // Update user record
+      await User.findByIdAndUpdate(userId, { avatar: avatar_url });
+
+      res.json({
+        success: true,
+        avatarUrl: avatar_url,
+        message: "Avatar uploaded successfully",
+      });
+    } catch (error) {
+      console.error("Avatar upload error:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Error uploading avatar" });
     }
-
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: "No file uploaded" });
-    }
-
-    const userId = req.user.id;
-    const key = `avatars/${userId}-${Date.now()}.jpg`;
-
-    // Upload to S3
-    const cmd = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: key,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
-    });
-
-    await s3.send(cmd);
-
-    // Generate file URL
-    const avatar_url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-
-    // Update user document
-    await User.findByIdAndUpdate(userId, { avatar: avatar_url });
-
-    res.json({
-      success: true,
-      avatarUrl: avatar_url,
-      message: "Avatar uploaded successfully",
-    });
-  } catch (error) {
-    console.error("Avatar upload error:", error);
-    res.status(500).json({ success: false, message: "Error uploading avatar" });
   }
-});
+);
+
 
 
 
