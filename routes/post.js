@@ -72,8 +72,22 @@ postRouter.post("/posts", async (req, res) => {
 // GET /api/posts - fetch latest posts populated with user profile
 postRouter.get("/posts", async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 }).limit(100).populate("ownerId", "name avatar_url").exec();
-    res.json(posts);
+    const posts = await Post.find().sort({ createdAt: -1 }).limit(100).populate("ownerId", "name avatar_url").lean();
+    //res.json(posts);
+    const bucket = process.env.S3_BUCKET_NAME;
+const region = process.env.AWS_REGION;
+
+const updatedPosts = posts.map(p => ({
+  ...p,
+  media_url: p.media_key
+    ? `https://${bucket}.s3.${region}.amazonaws.com/${p.media_key}`
+    : null,
+  thumbnail_url: p.thumbnail_key
+    ? `https://${bucket}.s3.${region}.amazonaws.com/${p.thumbnail_key}`
+    : null,
+}));
+
+res.json(updatedPosts);
   } catch (err) {
     console.error("❌ Fetch posts failed:", err);
     res.status(500).json({ error: "Failed to fetch posts: " + err.message });
