@@ -116,14 +116,14 @@ authRouter.post(
 
       const updatedUser = await User.findByIdAndUpdate(
         userId,
-        { avatar: avatar_url },
+        { avatar_url },
         { new: true } // ✅ return updated doc
       ).select("-password");
 
       res.json({
         success: true,
         message: "Avatar uploaded successfully",
-        avatarUrl: avatar_url,
+        avatar_url,
         user: updatedUser,
       });
     } catch (error) {
