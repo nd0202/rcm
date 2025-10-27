@@ -84,7 +84,7 @@ const updatedPosts = posts.map(p => ({
     : null,
   thumbnail_url: p.thumbnail_key
     ? `https://${bucket}.s3.${region}.amazonaws.com/${p.thumbnail_key}`
-    : "",
+    : null,
 }));
 
 res.json(updatedPosts);
