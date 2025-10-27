@@ -83,28 +83,26 @@ const s3 = new S3Client({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
+
+
+// ===== UPLOAD AVATAR =====
 authRouter.post(
   "/profile/avatar",
-  verifyToken, // <-- this is the missing piece!
+  verifyToken, // ✅ required
   upload.single("avatar"),
   async (req, res) => {
     try {
-      if (!req.user || !req.user.id) {
-        return res
-          .status(401)
-          .json({ success: false, message: "Unauthorized" });
+      const userId = req.user.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
       }
 
       if (!req.file) {
-        return res
-          .status(400)
-          .json({ success: false, message: "No file uploaded" });
+        return res.status(400).json({ success: false, message: "No file uploaded" });
       }
 
-      const userId = req.user.id;
       const key = `avatars/${userId}-${Date.now()}.jpg`;
 
-      // Upload to S3
       const cmd = new PutObjectCommand({
         Bucket: process.env.S3_BUCKET_NAME,
         Key: key,
@@ -114,25 +112,27 @@ authRouter.post(
 
       await s3.send(cmd);
 
-      // Generate public S3 URL
       const avatar_url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 
-      // Update user record
-      await User.findByIdAndUpdate(userId, { avatar: avatar_url });
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { avatar: avatar_url },
+        { new: true } // ✅ return updated doc
+      ).select("-password");
 
       res.json({
         success: true,
-        avatarUrl: avatar_url,
         message: "Avatar uploaded successfully",
+        avatarUrl: avatar_url,
+        user: updatedUser,
       });
     } catch (error) {
       console.error("Avatar upload error:", error);
-      res
-        .status(500)
-        .json({ success: false, message: "Error uploading avatar" });
+      res.status(500).json({ success: false, message: "Error uploading avatar" });
     }
   }
 );
+
 
 
 
