@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { User } from "../models/User.js";
 import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { Post } from "../models/post.js";
 
 
 
@@ -146,6 +147,168 @@ authRouter.get("/profile", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Profile fetch error:", err);
     res.status(500).json({ error: "Profile fetch failed" });
+  }
+});
+
+
+// ===== FOLLOW / UNFOLLOW / CHECK FOLLOW STATUS =====
+
+// ✅ Follow a user
+authRouter.post("/users/:userId/follow", verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params; // person to follow
+    const { followerId } = req.body; // person performing follow
+
+    if (!followerId || !userId) {
+      return res.status(400).json({ success: false, message: "Missing user IDs" });
+    }
+
+    if (followerId === userId) {
+      return res.status(400).json({ success: false, message: "Cannot follow yourself" });
+    }
+
+    const userToFollow = await User.findById(userId);
+    const followerUser = await User.findById(followerId);
+
+    if (!userToFollow || !followerUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // prevent duplicates
+    if (!userToFollow.followers.includes(followerId)) {
+      userToFollow.followers.push(followerId);
+      await userToFollow.save();
+    }
+
+    if (!followerUser.following.includes(userId)) {
+      followerUser.following.push(userId);
+      await followerUser.save();
+    }
+
+    res.json({ success: true, message: "Followed successfully" });
+  } catch (error) {
+    console.error("Follow user error:", error);
+    res.status(500).json({ success: false, message: "Error following user" });
+  }
+});
+
+// ✅ Unfollow a user
+authRouter.post("/users/:userId/unfollow", verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params; // person to unfollow
+    const { followerId } = req.body; // person performing unfollow
+
+    if (!followerId || !userId) {
+      return res.status(400).json({ success: false, message: "Missing user IDs" });
+    }
+
+    const userToUnfollow = await User.findById(userId);
+    const followerUser = await User.findById(followerId);
+
+    if (!userToUnfollow || !followerUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    userToUnfollow.followers = userToUnfollow.followers.filter(
+      (id) => id.toString() !== followerId
+    );
+    followerUser.following = followerUser.following.filter(
+      (id) => id.toString() !== userId
+    );
+
+    await userToUnfollow.save();
+    await followerUser.save();
+
+    res.json({ success: true, message: "Unfollowed successfully" });
+  } catch (error) {
+    console.error("Unfollow user error:", error);
+    res.status(500).json({ success: false, message: "Error unfollowing user" });
+  }
+});
+
+// ✅ Check follow status
+authRouter.get("/users/:otherId/is-following/:myId", verifyToken, async (req, res) => {
+  try {
+    const { otherId, myId } = req.params;
+
+    const otherUser = await User.findById(otherId);
+    if (!otherUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const isFollowing = otherUser.followers.includes(myId);
+    res.json({ success: true, isFollowing });
+  } catch (error) {
+    console.error("Check follow status error:", error);
+    res.status(500).json({ success: false, message: "Error checking follow status" });
+  }
+});
+
+// ✅ Get follow data (followers/following counts + lists)
+authRouter.get("/users/:userId/follow-data", verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId)
+      .populate("followers", "name avatar_url")
+      .populate("following", "name avatar_url");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.json({
+      success: true,
+      followersCount: user.followers.length,
+      followingCount: user.following.length,
+      followers: user.followers,
+      following: user.following,
+    });
+  } catch (error) {
+    console.error("Get follow data error:", error);
+    res.status(500).json({ success: false, message: "Error fetching follow data" });
+  }
+});
+
+  authRouter.get("/my", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const posts = await Post.find({ ownerId: userId })
+      .sort({ createdAt: -1 })
+      .populate("ownerId", "name avatar_url"); // include name & avatar
+
+    res.json({ success: true, posts });
+  } catch (error) {
+    console.error("Error fetching user's posts:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch posts" });
+  }
+});
+
+
+authRouter.delete("/:postId", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { postId } = req.params;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ success: false, message: "Post not found" });
+    }
+
+    // Ensure only the owner can delete
+    if (post.ownerId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to delete this post",
+      });
+    }
+
+    await Post.findByIdAndDelete(postId);
+
+    res.json({ success: true, message: "Post deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    res.status(500).json({ success: false, message: "Failed to delete post" });
   }
 });
 
