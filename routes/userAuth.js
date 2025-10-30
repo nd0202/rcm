@@ -269,7 +269,7 @@ authRouter.get("/users/:userId/follow-data", verifyToken, async (req, res) => {
   }
 });
 
-  authRouter.get("/my", verifyToken, async (req, res) => {
+  authRouter.get("/myposts", verifyToken, async (req, res) => {
   try {
     const userId = req.user;
 
