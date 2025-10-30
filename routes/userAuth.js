@@ -271,9 +271,9 @@ authRouter.get("/users/:userId/follow-data", verifyToken, async (req, res) => {
 
   authRouter.get("/my", verifyToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user;
 
-    const posts = await Post.find({ ownerId: userId })
+    const posts = await Post.find({ userId })
       .sort({ createdAt: -1 })
       .populate("ownerId", "name avatar_url"); // include name & avatar
 

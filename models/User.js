@@ -7,7 +7,7 @@ const UserSchema = new mongoose.Schema({
   avatar_url: String,
    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    createdAt: { type: Date, default: Date.now },
+    
   createdAt: { type: Date, default: Date.now }
 });
 export const User = mongoose.model('User', UserSchema);
