@@ -154,7 +154,7 @@ authRouter.get("/profile", verifyToken, async (req, res) => {
 // ===== FOLLOW / UNFOLLOW / CHECK FOLLOW STATUS =====
 
 // ✅ Follow a user
-authRouter.post("/users/:userId/follow", verifyToken, async (req, res) => {
+authRouter.post("/:userId/follow", verifyToken, async (req, res) => {
   try {
     const { userId } = req.params; // person to follow
     const { followerId } = req.body; // person performing follow
@@ -193,7 +193,7 @@ authRouter.post("/users/:userId/follow", verifyToken, async (req, res) => {
 });
 
 // ✅ Unfollow a user
-authRouter.post("/users/:userId/unfollow", verifyToken, async (req, res) => {
+authRouter.post("/:userId/unfollow", verifyToken, async (req, res) => {
   try {
     const { userId } = req.params; // person to unfollow
     const { followerId } = req.body; // person performing unfollow
@@ -227,7 +227,7 @@ authRouter.post("/users/:userId/unfollow", verifyToken, async (req, res) => {
 });
 
 // ✅ Check follow status
-authRouter.get("/users/:otherId/is-following/:myId", verifyToken, async (req, res) => {
+authRouter.get("/:otherId/is-following/:myId", verifyToken, async (req, res) => {
   try {
     const { otherId, myId } = req.params;
 
@@ -245,7 +245,7 @@ authRouter.get("/users/:otherId/is-following/:myId", verifyToken, async (req, re
 });
 
 // ✅ Get follow data (followers/following counts + lists)
-authRouter.get("/users/:userId/follow-data", verifyToken, async (req, res) => {
+authRouter.get("/:userId/follow-data", verifyToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const user = await User.findById(userId)
@@ -271,9 +271,9 @@ authRouter.get("/users/:userId/follow-data", verifyToken, async (req, res) => {
 
   authRouter.get("/myposts", verifyToken, async (req, res) => {
   try {
-    const userId = req.user;
+    const userId = req.user.id;
 
-    const posts = await Post.find({ userId })
+    const posts = await Post.find({ ownerId:userId })
       .sort({ createdAt: -1 })
       .populate("ownerId", "name avatar_url"); // include name & avatar
 
