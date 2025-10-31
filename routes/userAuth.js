@@ -269,46 +269,46 @@ authRouter.get("/:userId/follow-data", verifyToken, async (req, res) => {
   }
 });
 
-  authRouter.get("/myposts", verifyToken, async (req, res) => {
+
+// ✅ Fetch logged-in user's posts
+authRouter.get("/myposts", verifyToken, async (req, res) => {
   try {
-    const userId = req.user.id;
-
-    const posts = await Post.find({ ownerId:userId })
+    const posts = await Post.find({ ownerId: req.user.id })
       .sort({ createdAt: -1 })
-      .populate("ownerId", "name avatar_url"); // include name & avatar
-
+      .populate("ownerId", "name avatar_url");
     res.json({ success: true, posts });
-  } catch (error) {
-    console.error("Error fetching user's posts:", error);
+  } catch (err) {
+    console.error("Error fetching my posts:", err);
     res.status(500).json({ success: false, message: "Failed to fetch posts" });
   }
 });
 
+// ✅ Fetch posts by any other user
+authRouter.get("/:userId", verifyToken, async (req, res) => {
+  try {
+    const posts = await Post.find({ ownerId: req.params.userId })
+      .sort({ createdAt: -1 })
+      .populate("ownerId", "name avatar_url");
+    res.json({ success: true, posts });
+  } catch (err) {
+    console.error("Error fetching user's posts:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch user's posts" });
+  }
+});
 
+// ✅ Delete a post (only if owner)
 authRouter.delete("/:postId", verifyToken, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { postId } = req.params;
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ success: false, message: "Post not found" });
+    if (post.ownerId.toString() !== req.user.id)
+      return res.status(403).json({ success: false, message: "Not authorized" });
 
-    const post = await Post.findById(postId);
-    if (!post) {
-      return res.status(404).json({ success: false, message: "Post not found" });
-    }
-
-    // Ensure only the owner can delete
-    if (post.ownerId.toString() !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to delete this post",
-      });
-    }
-
-    await Post.findByIdAndDelete(postId);
-
+    await post.deleteOne();
     res.json({ success: true, message: "Post deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting post:", error);
-    res.status(500).json({ success: false, message: "Failed to delete post" });
+  } catch (err) {
+    console.error("Delete post error:", err);
+    res.status(500).json({ success: false, message: "Delete failed" });
   }
 });
 
