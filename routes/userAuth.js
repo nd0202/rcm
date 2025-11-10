@@ -120,9 +120,11 @@ authRouter.patch(
         { avatar_url },
         { new: true } // ✅ return updated doc
       ).select("-password");
-
-       // ✅ OPTIONAL: Also update avatar in all old posts
-      await Post.updateMany({ userId }, { $set: { userAvatar: avatar_url } });
+      // after updating user's avatar_url
+      await Post.updateMany(
+      { ownerId: userId },
+      { $set: { "userDetail.0.avatar_url": avatar_url } }
+      );
 
 
       res.json({
