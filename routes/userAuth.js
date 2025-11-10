@@ -87,7 +87,7 @@ const s3 = new S3Client({
 
 
 // ===== UPLOAD AVATAR =====
-authRouter.post(
+authRouter.patch(
   "/profile/avatar",
   verifyToken, // ✅ required
   upload.single("avatar"),
