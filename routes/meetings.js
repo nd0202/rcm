@@ -9,7 +9,9 @@ meetingRouter.post('/create', async (req, res) => {
   try {
     const { hostId, title } = req.body;
     const id = uuidv4();
-    const join_link = `${process.env.FRONTEND_BASE || 'http://localhost:8080'}/join/${id}`;
+    //const join_link = `${process.env.FRONTEND_BASE || 'http://localhost:8080'}/join/${id}`;
+    const join_link = `myapp://join/${id}`;
+
     const m = await Meeting.create({ _id: id, hostId, title, join_link, active: true });
     res.json(m);
   } catch (err) {
