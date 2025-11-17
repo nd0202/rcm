@@ -13,6 +13,7 @@ import imageRouter from './routes/Images.js';
 import videoRouter from './routes/video.js';
 import authRouter from './routes/userAuth.js';
 import postRouter from './routes/post.js';
+import participantsRouter from './routes/participants.js';
 
 
 dotenv.config();
@@ -39,6 +40,7 @@ app.use('/api', presignRouter);
 app.use('/api', videoRouter);
 app.use('/api', postRouter);
 app.use('/meetings', meetingRouter);
+app.use("/api/participants", participantsRouter);
 
 app.get('/', (_, res) => res.json({ ok: true }));
 
