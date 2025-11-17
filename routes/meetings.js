@@ -10,7 +10,7 @@ meetingRouter.post('/create', async (req, res) => {
     const { hostId, title } = req.body;
     const id = uuidv4();
     //const join_link = `${process.env.FRONTEND_BASE || 'http://localhost:8080'}/join/${id}`;
-    const join_link = `https://yourdomain.com/meet/${id}`;
+    const join_link = `https://zoomlive.in/meet/${id}`;
 
     const m = await Meeting.create({ _id: id, hostId, title, join_link, active: true });
     res.json(m);
