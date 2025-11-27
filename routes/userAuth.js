@@ -7,6 +7,7 @@ import { User } from "../models/User.js";
 import multer from "multer";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Post } from "../models/post.js";
+import { generateAccessToken, generateRefreshToken } from "../utils/generateTokens.js";
 
 
 
@@ -34,6 +35,30 @@ authRouter.post("/signup", async (req, res) => {
 });
 
 // ===== LOGIN =====
+// authRouter.post("/login", async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     const user = await User.findOne({ email });
+//     if (!user) return res.status(404).json({ error: "User not found" });
+
+//     const match = await bcrypt.compare(password, user.password);
+//     if (!match) return res.status(401).json({ error: "Invalid credentials" });
+
+//     // Generate token
+//     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+//     res.json({ token, user });
+//   } catch (err) {
+//     console.error("Login error:", err);
+//     res.status(500).json({ error: "Login failed" });
+//   }
+// });
+
+
+
+
+
 authRouter.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -44,15 +69,59 @@ authRouter.post("/login", async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: "Invalid credentials" });
 
-    // Generate token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
 
-    res.json({ token, user });
+    // ✅ SAVE refresh token in DB
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    res.json({
+      accessToken,
+      refreshToken,
+      user
+    });
+
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Login failed" });
   }
 });
+
+
+
+authRouter.post("/refresh", async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) return res.status(401).json({ error: "Refresh token required" });
+
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+
+    const user = await User.findById(decoded.id);
+    if (!user || user.refreshToken !== refreshToken) {
+      return res.status(403).json({ error: "Invalid refresh token" });
+    }
+
+    // ✅ Generate NEW tokens (rotation)
+    const newAccessToken = generateAccessToken(user._id);
+    const newRefreshToken = generateRefreshToken(user._id);
+
+    user.refreshToken = newRefreshToken;
+    await user.save();
+
+    res.json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken
+    });
+
+  } catch (err) {
+    return res.status(403).json({ error: "Refresh token expired" });
+  }
+});
+
+
 
 // ===== VERIFY TOKEN MIDDLEWARE =====
 const verifyToken = (req, res, next) => {
@@ -71,6 +140,21 @@ const verifyToken = (req, res, next) => {
     return res.status(403).json({ error: "Invalid or expired token" });
   }
 };
+
+
+authRouter.post("/logout", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    user.refreshToken = null;
+    await user.save();
+
+    res.json({ message: "Logged out successfully" });
+
+  } catch (err) {
+    res.status(500).json({ error: "Logout failed" });
+  }
+});
+
 
 // upload profile avtar
 
@@ -125,7 +209,6 @@ authRouter.patch(
       { ownerId: userId },
       { $set: { "userDetail.0.avatar_url": avatar_url } }
       );
-
 
       res.json({
         success: true,

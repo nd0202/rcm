@@ -3,7 +3,8 @@ import mongoose from 'mongoose';
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: String,
-   password: String,
+  password: String,
+  refreshToken: String, 
   avatar_url: String,
    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
