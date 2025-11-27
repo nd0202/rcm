@@ -22,11 +22,13 @@ const s3 = new S3Client({ region: process.env.AWS_REGION });
 // Expects: ownerId, title, description, media_key, media_type, thumbnail_key (optional)
 postRouter.post("/posts", async (req, res) => {
   try {
-    const { ownerId, title, description, media_key, media_type, thumbnail_key } = req.body;
-    if (!ownerId || !media_key || !media_type) {
-      return res.status(400).json({ error: "Missing ownerId, media_key or media_type" });
+    const { title, description, media_key, media_type, thumbnail_key } = req.body;
+    if (!media_key || !media_type) {
+      return res.status(400).json({ error: "media_key or media_type" });
     }
-     const user = await User.findById(ownerId).select('-password');
+     // ✅ Get logged-in user ID from token
+    const userId = req.user.id;
+     const user = await User.findById(userId).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found', success: false });
     }
