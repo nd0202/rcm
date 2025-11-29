@@ -9,7 +9,7 @@
 //   try {
 //     const { hostId, title } = req.body;
 //     const id = uuidv4();
-//     //const join_link = `${process.env.FRONTEND_BASE || 'http://localhost:8080'}/join/${id}`;
+//     
 //     const join_link = `https://zoomlive.in/meet/${id}`;
 
 //     const m = await Meeting.create({ _id: id, hostId, title, join_link, active: true });
@@ -43,7 +43,7 @@ meetingRouter.post('/create', async (req, res) => {
 try {
 const { hostId, title } = req.body;
 const id = uuidv4();
-const join_link = `${process.env.FRONTEND_BASE || 'https://zoomlive.in'}/meet/${id}`;
+const join_link = `https://zoomlive.in/meet/${id}`;
 
 
 const m = await Meeting.create({
@@ -53,7 +53,7 @@ title,
 join_link,
 active: true,
 startedAt: new Date(),
-//maxDurationMinutes: 30
+maxDurationMinutes: 30
 });
 
 
@@ -66,7 +66,7 @@ res.status(500).json({ error: 'create meeting failed' });
 
 
 meetingRouter.get('/:id', async (req, res) => {
-const m = await Meeting.findById(req.params.id).lean();
+const m = await Meeting.findById(req.params.id);
 if (!m) return res.status(404).json({ error: 'not found' });
 res.json(m);
 });
