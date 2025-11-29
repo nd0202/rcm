@@ -40,7 +40,7 @@ app.use('/api', presignRouter);
 app.use('/api', videoRouter);
 app.use('/api', postRouter);
 app.use('/meetings', meetingRouter);
-app.use("/api/participants", participantsRouter);
+app.use("/participants", participantsRouter);
 
 app.get('/', (_, res) => res.json({ ok: true }));
 
