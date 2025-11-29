@@ -53,7 +53,7 @@ title,
 join_link,
 active: true,
 startedAt: new Date(),
-maxDurationMinutes: 30
+//maxDurationMinutes: 30
 });
 
 
