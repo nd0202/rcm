@@ -6,9 +6,9 @@ let ioInstance = null;
 export default function startSignaling(server) {
   const io = new Server(server, {
     cors: {
-      origin: true,
+      origin: "*",
       methods: ['GET', 'POST'],
-      credentials: true
+      //credentials: true
     }
   });
 
