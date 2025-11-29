@@ -52,8 +52,8 @@ hostId,
 title,
 join_link,
 active: true,
-startedAt: new Date(),
-maxDurationMinutes: 30
+// startedAt: new Date(),
+// maxDurationMinutes: 30
 });
 
 
