@@ -29,7 +29,7 @@ meetingRouter.get('/:id', async (req, res) => {
 meetingRouter.post('/:id/host', async (req, res) => {
 // change host (promote participant to host)
 const { newHostId } = req.body;
-const m = await Meeting.findById(req.params.id).lean();
+const m = await Meeting.findById(req.params.id);
 if (!m) return res.status(404).json({ error: 'not found' });
 m.hostId = newHostId;
 m.participants = (m.participants || []).map(p => ({ ...p.toObject(), isHost: p.id === newHostId }));
