@@ -349,8 +349,10 @@ export default function startSignaling(server) {
   io.on("connection", (socket) => {
     console.log("🟢 Socket connected:", socket.id);
 
-    // ✅ JOIN MEETING + SAVE PARTICIPANT TO DB
-    socket.on("join", async ({ meetingId, userId }) => {
+    // ============================================================
+    // ✅ JOIN MEETING (HOST & PARTICIPANTS)
+    // ============================================================
+    socket.on("join", async ({ meetingId, userId, name }) => {
       try {
         if (!meetingId || !userId) return;
 
@@ -359,15 +361,15 @@ export default function startSignaling(server) {
         const meeting = await Meeting.findById(meetingId);
         if (!meeting) return;
 
-        let participant = meeting.participants.find(p => p.id === userId);
-
         const isHost = meeting.hostId === userId;
+
+        let participant = meeting.participants.find((p) => p.id === userId);
 
         if (!participant) {
           participant = {
             id: userId,
             socketId: socket.id,
-            name: "Mobile User",
+            name: name || "User",
             avatar: null,
             muted: false,
             isHost: isHost,
@@ -376,15 +378,15 @@ export default function startSignaling(server) {
         } else {
           // ✅ FULL RECONNECT FIX
           participant.socketId = socket.id;
-          participant.isHost = isHost;   // ✅ FORCE HOST AGAIN
+          participant.isHost = isHost;
         }
 
         await meeting.save();
 
-        // ✅ ALWAYS SEND CLEAN PARTICIPANTS
+        // ✅ SEND CLEAN PARTICIPANT LIST
         io.to(meetingId).emit(
           "participants-updated",
-          meeting.participants.map(p => ({
+          meeting.participants.map((p) => ({
             id: p.id,
             name: p.name || "Unknown",
             avatar: p.avatar || null,
@@ -393,15 +395,15 @@ export default function startSignaling(server) {
           }))
         );
 
-        // ✅ NORMAL WEBRTC FLOW
+        // ✅ NORMAL WEBRTC PEER FLOW
         const room = io.sockets.adapter.rooms.get(meetingId);
         const existing = room
-          ? Array.from(room).filter(id => id !== socket.id)
+          ? Array.from(room).filter((id) => id !== socket.id)
           : [];
 
         socket.emit(
           "existing-peers",
-          existing.map(id => ({ socketId: id }))
+          existing.map((id) => ({ socketId: id }))
         );
 
         socket.to(meetingId).emit("peer-joined", {
@@ -409,12 +411,71 @@ export default function startSignaling(server) {
           socketId: socket.id,
         });
 
+        console.log(`✅ ${userId} joined meeting ${meetingId}`);
       } catch (err) {
-        console.error("join error", err);
+        console.error("join error:", err);
       }
     });
 
-    // ✅ DISCONNECT → AUTO REMOVE SOCKET FROM DB
+    // ============================================================
+    // ✅ WEBRTC SIGNAL RELAY
+    // ============================================================
+    socket.on("signal", ({ meetingId, targetSocketId, data }) => {
+      if (!meetingId || !data) return;
+
+      if (targetSocketId) {
+        io.to(targetSocketId).emit("signal", {
+          from: socket.id,
+          data,
+        });
+      } else {
+        socket.to(meetingId).emit("signal", {
+          from: socket.id,
+          data,
+        });
+      }
+    });
+
+    // ============================================================
+    // ✅ HOST TRANSFER (CLICK USER → MAKE HOST)
+    // ============================================================
+    socket.on("make-host", async ({ meetingId, newHostId }) => {
+      try {
+        const meeting = await Meeting.findById(meetingId);
+        if (!meeting) return;
+
+        const currentHost = meeting.participants.find((p) => p.isHost);
+        const nextHost = meeting.participants.find((p) => p.id === newHostId);
+
+        if (!currentHost || !nextHost) return;
+
+        // ✅ SWITCH HOST
+        currentHost.isHost = false;
+        nextHost.isHost = true;
+        meeting.hostId = newHostId;
+
+        await meeting.save();
+
+        // ✅ FORCE OLD HOST TO LEAVE
+        if (currentHost.socketId) {
+          io.to(currentHost.socketId).emit("force-leave");
+        }
+
+        // ✅ UPDATE EVERYONE
+        io.to(meetingId).emit(
+          "participants-updated",
+          meeting.participants
+        );
+
+        console.log("✅ Host transferred to:", newHostId);
+      } catch (err) {
+        console.error("make-host error:", err);
+      }
+    });
+
+    // ============================================================
+    // ✅ HOST CANNOT LEAVE WITHOUT TRANSFER
+    // ============================================================
     socket.on("disconnect", async () => {
       try {
         const meetings = await Meeting.find({
@@ -422,18 +483,26 @@ export default function startSignaling(server) {
         });
 
         for (const meeting of meetings) {
-          // ✅ Only clear socketId, DO NOT nuke host
-          meeting.participants.forEach(p => {
-            if (p.socketId === socket.id) {
-              p.socketId = null;
-            }
-          });
+          const leavingParticipant = meeting.participants.find(
+            (p) => p.socketId === socket.id
+          );
+
+          // ❌ BLOCK HOST EXIT
+          if (leavingParticipant?.isHost) {
+            console.log("❌ Host tried to disconnect without transfer");
+            return;
+          }
+
+          // ✅ REMOVE NORMAL USER
+          meeting.participants = meeting.participants.filter(
+            (p) => p.socketId !== socket.id
+          );
 
           await meeting.save();
 
           io.to(meeting._id.toString()).emit(
             "participants-updated",
-            meeting.participants.map(p => ({
+            meeting.participants.map((p) => ({
               id: p.id,
               name: p.name || "Unknown",
               avatar: p.avatar || null,
@@ -445,14 +514,14 @@ export default function startSignaling(server) {
           socket.to(meeting._id.toString()).emit("peer-left", {
             socketId: socket.id,
           });
-        }
 
+          console.log("✅ User disconnected:", socket.id);
+        }
       } catch (err) {
-        console.error("disconnect error", err);
+        console.error("disconnect error:", err);
       }
     });
+  });
 
-  }); // ← This was missing - closing the connection event handler
-
-  console.log("🚀 Signaling server with DB participants is READY");
+  console.log("🚀 Signaling server with strict host control is READY");
 }
