@@ -101,186 +101,87 @@ export default function startSignaling(server) {
     // JOIN
     // payload: { meetingId, userId, name }
     // ------------------------
-    socket.on("join", async ({ meetingId, userId, name }) => {
+        socket.on("join", async ({ meetingId, userId, name }) => {
       try {
-        if (!meetingId || !userId) {
-          socket.emit("error", { message: "join requires meetingId and userId" });
-          return;
-        }
+        if (!meetingId || !userId) return;
 
         const meeting = await Meeting.findById(meetingId);
-        if (!meeting) {
-          socket.emit("error", { message: "meeting not found" });
-          return;
-        }
+        if (!meeting) return;
 
         const isHost = meeting.hostId === userId;
 
-        // If meeting is locked and this is not the host, put into waiting room
-        if (meeting.locked && !isHost) {
-          const alreadyWaiting = (meeting.waitingRoom || []).some(w => w.id === userId);
-          if (!alreadyWaiting) {
-            meeting.waitingRoom = meeting.waitingRoom || [];
-            meeting.waitingRoom.push({
-              id: userId,
-              socketId: socket.id,
-              name: name || "Guest",
-              avatar: null,
-              muted: false,
-              isHost: false,
-            });
-            await meeting.save();
-          }
-
-          // notify host only
-          const host = meeting.participants.find(p => p.isHost);
-          if (host?.socketId) {
-            io.to(host.socketId).emit("waiting-room-update", meeting.waitingRoom);
-          }
-
-          socket.emit("waiting", { message: "Meeting locked — waiting for approval" });
-          console.log(`🔒 ${userId} added to waiting room for ${meetingId}`);
-          return;
-        }
-
-        // join socket.io room
         socket.join(meetingId);
 
-        // find participant (may be placeholder)
-        let participant = (meeting.participants || []).find(p => p.id === userId);
+        // ✅ FORCE HOST TO EXIST
+        let hostParticipant = meeting.participants.find(
+          p => p.id === meeting.hostId
+        );
 
-        // If host is defined in meeting.hostId but not present in participants, add placeholder for host
-        if (!participant && isHost) {
-          participant = {
-            id: userId,
-            socketId: socket.id,
-            name: name || "Host",
+        if (!hostParticipant) {
+          meeting.participants.push({
+            id: meeting.hostId,
+            socketId: null,
+            name: "Host",
             avatar: null,
             muted: false,
             isHost: true,
-          };
-          meeting.participants = meeting.participants || [];
-          meeting.participants.push(participant);
-        } else if (!participant) {
-          // normal new participant
-          participant = {
+          });
+        }
+
+        // ✅ HANDLE CURRENT USER
+        let participant = meeting.participants.find(p => p.id === userId);
+
+        if (!participant) {
+          meeting.participants.push({
             id: userId,
             socketId: socket.id,
-            name: name || "User",
+            name: name || (isHost ? "Host" : "User"),
             avatar: null,
             muted: false,
-            isHost: !!isHost,
-          };
-          meeting.participants = meeting.participants || [];
-          meeting.participants.push(participant);
+            isHost: isHost,
+          });
         } else {
-          // reconnect/update existing participant
           participant.socketId = socket.id;
-          participant.isHost = !!isHost;
+
+          // ✅ NEVER lose host role
+          if (participant.id === meeting.hostId) {
+            participant.isHost = true;
+          }
         }
 
         await meeting.save();
 
-        // broadcast participants
-        io.to(meetingId).emit("participants-updated", (meeting.participants || []).map(p => ({
-          id: p.id,
-          name: p.name || "Unknown",
-          avatar: p.avatar || null,
-          muted: !!p.muted,
-          isHost: !!p.isHost,
-          socketId: p.socketId || null,
-        })));
+        // ✅ SYNC PARTICIPANTS TO ALL
+        io.to(meetingId).emit(
+          "participants-updated",
+          meeting.participants.map(p => ({
+            id: p.id,
+            name: p.name,
+            avatar: p.avatar,
+            muted: p.muted,
+            isHost: p.isHost,
+            socketId: p.socketId ?? null,
+          }))
+        );
 
-        // webRTC: send existing peers (socket ids) to the new socket
+        // ✅ WEBRTC EXISTING PEERS
         const room = io.sockets.adapter.rooms.get(meetingId);
-        const existing = room ? Array.from(room).filter(id => id !== socket.id) : [];
+        const existing = room
+          ? Array.from(room).filter(id => id !== socket.id)
+          : [];
+
         socket.emit("existing-peers", existing.map(id => ({ socketId: id })));
 
-        // notify others someone joined
-        socket.to(meetingId).emit("peer-joined", { userId, socketId: socket.id });
-
-        console.log(`✅ ${userId} joined meeting ${meetingId} (socket ${socket.id})`);
-      } catch (err) {
-        console.error("join error:", err);
-        socket.emit("error", { message: "join failed" });
-      }
-    });
-
-    // ------------------------
-    // APPROVE USER FROM WAITING ROOM (host only)
-    // payload: { meetingId, userId }
-    // ------------------------
-    socket.on("approve-user", async ({ meetingId, userId }) => {
-      try {
-        if (!meetingId || !userId) return;
-        const meeting = await Meeting.findById(meetingId);
-        if (!meeting) return;
-
-        const host = (meeting.participants || []).find(p => p.isHost);
-        if (!host || host.socketId !== socket.id) return; // only host
-
-        const waiting = (meeting.waitingRoom || []).find(w => w.id === userId);
-        if (!waiting) return;
-
-        // remove from waiting and add to participants
-        meeting.waitingRoom = (meeting.waitingRoom || []).filter(w => w.id !== userId);
-        meeting.participants = meeting.participants || [];
-        meeting.participants.push({
-          id: waiting.id,
-          socketId: waiting.socketId,
-          name: waiting.name || "User",
-          avatar: null,
-          muted: false,
-          isHost: false,
+        socket.to(meetingId).emit("peer-joined", {
+          userId,
+          socketId: socket.id,
         });
 
-        await meeting.save();
-
-        // notify the approved user
-        if (waiting.socketId) {
-          io.to(waiting.socketId).emit("approved", { meetingId });
-        }
-
-        // update everyone
-        io.to(meetingId).emit("participants-updated", meeting.participants);
-        console.log(`✅ Approved ${userId} into meeting ${meetingId}`);
+        console.log(`✅ ${userId} joined meeting ${meetingId}`);
       } catch (err) {
-        console.error("approve-user error:", err);
+        console.error("join error:", err);
       }
     });
-
-    // ------------------------
-    // KICK USER (host only)
-    // payload: { meetingId, userId }
-    // ------------------------
-    socket.on("kick-user", async ({ meetingId, userId }) => {
-      try {
-        if (!meetingId || !userId) return;
-        const meeting = await Meeting.findById(meetingId);
-        if (!meeting) return;
-
-        const host = (meeting.participants || []).find(p => p.isHost);
-        if (!host || host.socketId !== socket.id) return; // only host
-
-        const user = (meeting.participants || []).find(p => p.id === userId);
-        if (!user) return;
-
-        // remove from participants
-        meeting.participants = (meeting.participants || []).filter(p => p.id !== userId);
-        await meeting.save();
-
-        // notify kicked user
-        if (user.socketId) {
-          io.to(user.socketId).emit("kicked", { meetingId });
-        }
-
-        io.to(meetingId).emit("participants-updated", meeting.participants);
-        console.log(`🗑️ Kicked ${userId} from ${meetingId}`);
-      } catch (err) {
-        console.error("kick-user error:", err);
-      }
-    });
-
     // ------------------------
     // MUTE ALL (host only)
     // payload: { meetingId }
@@ -307,28 +208,7 @@ export default function startSignaling(server) {
       }
     });
 
-    // ------------------------
-    // LOCK / UNLOCK MEETING (host only)
-    // payload: { meetingId, lock } (lock = true/false)
-    // ------------------------
-    socket.on("lock-meeting", async ({ meetingId, lock = true }) => {
-      try {
-        if (!meetingId) return;
-        const meeting = await Meeting.findById(meetingId);
-        if (!meeting) return;
-
-        const host = (meeting.participants || []).find(p => p.isHost);
-        if (!host || host.socketId !== socket.id) return;
-
-        meeting.locked = !!lock;
-        await meeting.save();
-        io.to(meetingId).emit("meeting-locked", { locked: meeting.locked });
-        console.log(`🔒 Meeting ${meetingId} locked=${meeting.locked}`);
-      } catch (err) {
-        console.error("lock-meeting error:", err);
-      }
-    });
-
+   
     // ------------------------
     // END MEETING (host only)
     // payload: { meetingId }
